@@ -2,11 +2,11 @@ data "template_file" "user_data" {
   template = file("${path.module}/templates/user-data.txt")
 
   vars = {
-    wg_server_private_key = data.aws_ssm_parameter.wg_server_private_key.value
+    wg_server_private_key = aws_ssm_parameter.wg_server_private_key.value
     wg_server_net         = var.wg_server_net
     wg_server_port        = var.wg_server_port
     peers                 = join("\n", data.template_file.wg_client_data_json.*.rendered)
-    eip_id                = var.eip_id
+    eip_id                = aws_eip.wireguard.id
   }
 }
 
@@ -38,10 +38,13 @@ data "aws_ami" "ubuntu" {
 # turn the sg into a sorted list of string
 locals {
   sg_wireguard_external = sort([aws_security_group.sg_wireguard_external.id])
-}
-
-# clean up and concat the above wireguard default sg with the additional_security_group_ids
-locals {
+  tunnel_string = templatefile("${path.module}/templates/tunnel.tpl", {
+    wireguard_client_private_key = var.wireguard_client_private_key,
+    wireguard_server_public_key  = var.wireguard_server_public_key,
+    server_ip                    = aws_eip.wireguard.public_ip,
+    persistent_keepalive         = var.wg_persistent_keepalive,
+    wg_server_port               = var.wg_server_port
+  })
   security_groups_ids = compact(concat(var.additional_security_group_ids, local.sg_wireguard_external))
 }
 
@@ -49,11 +52,12 @@ resource "aws_launch_configuration" "wireguard_launch_config" {
   name_prefix                 = "wireguard-${var.env}-"
   image_id                    = var.ami_id == null ? data.aws_ami.ubuntu.id : var.ami_id
   instance_type               = var.instance_type
-  key_name                    = var.ssh_key_id
-  iam_instance_profile        = (var.eip_id != "disabled" ? aws_iam_instance_profile.wireguard_profile[0].name : null)
+  spot_price                  = var.spot_price
+  key_name                    = aws_key_pair.this.key_name
+  iam_instance_profile        = aws_iam_instance_profile.wireguard_profile.name
   user_data                   = data.template_file.user_data.rendered
   security_groups             = local.security_groups_ids
-  associate_public_ip_address = (var.eip_id != "disabled" ? true : false)
+  associate_public_ip_address = true
 
   lifecycle {
     create_before_destroy = true
@@ -98,3 +102,12 @@ resource "aws_autoscaling_group" "wireguard_asg" {
     },
   ]
 }
+
+resource "aws_eip" "wireguard" {
+  vpc = true
+  tags = {
+    Name = "wireguard"
+  }
+}
+
+

@@ -1,7 +1,3 @@
-variable "ssh_key_id" {
-  description = "A SSH public key ID to add to the VPN instance."
-}
-
 variable "instance_type" {
   default     = "t2.micro"
   description = "The machine type to launch, some machines may offer higher throughput for higher use cases."
@@ -51,11 +47,6 @@ variable "wg_persistent_keepalive" {
   description = "Persistent Keepalive - useful for helping connection stability over NATs."
 }
 
-variable "eip_id" {
-  default     = "disabled"
-  description = "If we detect the default 'disabled' we avoid the EIP switching code in user-data on wg server startup, if an EIP ID is provided the instance will attempt to switch EIP."
-}
-
 variable "additional_security_group_ids" {
   type        = list(string)
   default     = [""]
@@ -81,4 +72,48 @@ variable "wg_server_private_key_param" {
 variable "ami_id" {
   default     = null # we check for this and use a data provider since we can't use it here
   description = "The AWS AMI to use for the WG server, defaults to the latest Ubuntu 16.04 AMI if not specified."
+}
+
+variable "wireguard_server_private_key" {
+  description = <<-EOT
+
+  EOT
+  type        = string
+}
+
+variable "wireguard_server_public_key" {
+  description = <<-EOT
+
+  EOT
+  type        = string
+}
+
+variable "wireguard_client_private_key" {
+  description = <<-EOT
+
+  EOT
+  type        = string
+}
+
+variable "ssh_public_key_path" {
+  type        = string
+  description = "Path to SSH public key directory (e.g. `/secrets`)"
+  default     = "."
+}
+
+variable "private_key_extension" {
+  type        = string
+  default     = ".pem"
+  description = "Private key extension"
+}
+
+variable "public_key_extension" {
+  type        = string
+  default     = ".pub"
+  description = "Public key extension"
+}
+
+variable "spot_price" {
+  default     = null
+  description = "Bid price for EC2 instance. If not specified, an on-demand instance will be used."
 }
